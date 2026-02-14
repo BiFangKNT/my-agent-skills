@@ -23,6 +23,8 @@ description: 使用 GitHub CLI (`gh`) 执行非交互式 GitHub 协作与自动�
 2. 用户要求“评论/审查/合并/触发工作流”：先只读确认对象存在与状态，再执行变更命令。
 3. 用户同时要“查询+修改”：拆成两段，先回显查询结果，再给修改命令并执行。
 4. 用户目标不完整（缺编号、缺仓库、缺 merge 方法）：先补齐参数，不直接变更。
+5. 用户要求“整体审查结论”（`approve`/`request-changes`/`comment`）：使用 `gh pr review`。
+6. 用户要求“按文件/按行评论”：使用 `gh api repos/{owner}/{repo}/pulls/{num}/reviews` 或 `gh api repos/{owner}/{repo}/pulls/{num}/comments`，不要把 `gh pr review` 当作行内评论接口。
 
 ## Command Rules
 
@@ -30,6 +32,9 @@ description: 使用 GitHub CLI (`gh`) 执行非交互式 GitHub 协作与自动�
 - 优先输出 JSON：使用 `--json` + `--jq/-q` 精简结果。
 - 需要批量查询时，优先 `gh api --paginate`。
 - 需要复杂参数时，优先 `gh api -f/-F` 或 `--input` 传文件。
+- `gh pr diff` 不支持按文件路径直接过滤；按文件获取 patch 使用 `gh api repos/{owner}/{repo}/pulls/{num}/files --paginate` 再筛选。
+- 提交行内评论前，必须先查询 `headRefOid`，并保证请求里的 `commit_id` 与其一致；否则常见 `422`。
+- 构造复杂 JSON 时，优先内存对象后通过标准输入喂给 `gh api --input -`，避免在工作区落地临时文件。
 
 ## Failure Handling
 
@@ -47,6 +52,7 @@ description: 使用 GitHub CLI (`gh`) 执行非交互式 GitHub 协作与自动�
 - 目标对象（PR/Issue 编号或 workflow 名称）。
 - 操作类型（comment/review/merge/run 等）。
 - 关键策略（merge 方法、是否 `--delete-branch`、是否 `--auto`）。
+- 若为行内评论：`headRefOid` 与 `commit_id` 一致。
 - 预期结果（状态变化、评论内容、触发记录）。
 
 缺任一关键项时，先补信息，再执行。
